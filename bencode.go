@@ -1,19 +1,12 @@
 package main
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"io"
 
 	"github.com/Nishant-Pall/bengoder"
 )
-
-type BencodeTorrent struct {
-	Announce     string
-	Comment      string
-	CreatedBy    string
-	CreationDate int
-	Info         BencodeInfo
-}
 
 type BencodeInfo struct {
 	Length      int
@@ -22,32 +15,61 @@ type BencodeInfo struct {
 	Pieces      string
 }
 
-func OpenTorrent(r io.Reader) (*BencodeTorrent, error) {
+func (bi *BencodeInfo) hash() [20]byte {
+	rawInfo := bengoder.Encode(bi)
 
-	reader := bengoder.NewResp(r)
+	h := sha1.Sum(rawInfo)
 
-	val, _ := reader.Decode()
-	m, ok := val.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("Error parsing to map")
-	}
+	return h
+}
+
+type BencodeTorrent struct {
+	Announce     string
+	Comment      string
+	CreatedBy    string
+	CreationDate int
+	Info         BencodeInfo
+	infoHash     [20]byte
+}
+
+func (bto *BencodeTorrent) OpenTorrent(r io.Reader) error {
+
+	decodedTorrent := bengoder.UnMarshallFile(r)
 
 	bencodeInfo := &BencodeInfo{}
 
-	info := m["info"].(map[string]any)
+	info, ok := decodedTorrent["info"].(map[string]any)
+
+	if !ok {
+		return fmt.Errorf("Error parsing info dict")
+	}
+
+	bto.Announce = decodedTorrent["announce"].(string)
+	bto.Comment = decodedTorrent["comment"].(string)
+	bto.CreatedBy = decodedTorrent["created by"].(string)
+	bto.CreationDate = decodedTorrent["creation date"].(int)
 
 	bencodeInfo.Length = info["length"].(int)
 	bencodeInfo.Name = info["name"].(string)
 	bencodeInfo.PieceLength = info["piece length"].(int)
 	bencodeInfo.Pieces = info["pieces"].(string)
 
-	bencodeTorrent := &BencodeTorrent{}
+	bto.Info = *bencodeInfo
 
-	bencodeTorrent.Announce = m["announce"].(string)
-	bencodeTorrent.Comment = m["comment"].(string)
-	bencodeTorrent.CreatedBy = m["created by"].(string)
-	bencodeTorrent.CreationDate = m["creation date"].(int)
-	bencodeTorrent.Info = *bencodeInfo
+	return nil
+}
 
-	return bencodeTorrent, nil
+func (bto *BencodeTorrent) toTorrentFile() (TorrentFile, error) {
+
+	infoHash := bto.Info.hash()
+
+	t := TorrentFile{
+		Announce:    bto.Announce,
+		InfoHash:    infoHash,
+		PieceLength: bto.Info.PieceLength,
+		Length:      bto.Info.Length,
+		Name:        bto.Info.Name,
+	}
+
+	return t, nil
 }

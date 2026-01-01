@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -14,16 +13,10 @@ func main() {
 		return
 	}
 
-	bto, err := OpenTorrent(file)
+	bto := &BencodeTorrent{}
+	bto.OpenTorrent(file)
 
-	if err != nil {
-		return
-	}
-
-	fmt.Printf("%v \r\n", bto)
-
-}
-
-func buildTrackerURL() {
+	bto.toTorrentFile()
+	// fmt.Printf("%v \r\n", bto.Announce)
 
 }
