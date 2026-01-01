@@ -23,6 +23,25 @@ func (bi *BencodeInfo) hash() [20]byte {
 	return h
 }
 
+func (bi *BencodeInfo) splitPieceHashes() ([][20]byte, error) {
+	hashLen := 20
+	buf := []byte(bi.Pieces)
+
+	if len(buf)%hashLen != 0 {
+		return nil, fmt.Errorf("Received malformed pieces of length %d", len(buf))
+	}
+
+	numHashes := len(buf) / hashLen
+	hashes := make([][20]byte, numHashes)
+
+	for i := range numHashes {
+		copy(hashes[i][:], buf[i*hashLen:(i+1)*hashLen])
+	}
+
+	return hashes, nil
+
+}
+
 type BencodeTorrent struct {
 	Announce     string
 	Comment      string
@@ -63,10 +82,17 @@ func (bto *BencodeTorrent) toTorrentFile() (TorrentFile, error) {
 
 	infoHash := bto.Info.hash()
 
+	pieceHashes, err := bto.Info.splitPieceHashes()
+
+	if err != nil {
+		return TorrentFile{}, err
+	}
+
 	t := TorrentFile{
 		Announce:    bto.Announce,
 		InfoHash:    infoHash,
 		PieceLength: bto.Info.PieceLength,
+		PieceHashes: pieceHashes,
 		Length:      bto.Info.Length,
 		Name:        bto.Info.Name,
 	}
