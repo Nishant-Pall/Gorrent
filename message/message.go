@@ -7,6 +7,13 @@ import (
 
 type BitField []byte
 
+func (bf BitField) HasPiece(index int) bool {
+	byteIndex := index / 8
+	offset := index % 8
+
+	return bf[byteIndex]>>(7-offset)&1 != 0
+}
+
 type messageID uint8
 
 const (
@@ -24,6 +31,15 @@ const (
 type Message struct {
 	ID      messageID
 	Payload BitField
+}
+
+func FormatRequest(index, offset, length int) *Message {
+	payload := make([]byte, 12)
+
+	binary.BigEndian.PutUint32(payload[0:4], uint32(index))
+	binary.BigEndian.PutUint32(payload[4:8], uint32(offset))
+	binary.BigEndian.PutUint32(payload[8:12], uint32(length))
+	return &Message{ID: MsgRequest, Payload: payload}
 }
 
 func (m *Message) Serialize() []byte {
@@ -61,4 +77,18 @@ func Read(r io.Reader) (*Message, error) {
 		ID:      messageID(messageBuf[0]),
 		Payload: messageBuf[1:],
 	}, nil
+}
+
+func ParsePiece(index int, buf []byte, msg *Message) int {
+	parsedIndex := int(binary.BigEndian.Uint32(msg.Payload[0:4]))
+
+	if parsedIndex != index {
+		return 0
+	}
+
+	begin := int(binary.BigEndian.Uint32(msg.Payload[4:8]))
+	data := msg.Payload[8:]
+	copy(buf[begin:], data)
+
+	return len(data)
 }

@@ -67,8 +67,6 @@ func New(peer peer.Peer, peerID, infoHash [20]byte) (*Client, error) {
 		return nil, err
 	}
 
-	defer conn.Close()
-
 	_, err = CompleteHandShake(conn, peerID, infoHash)
 
 	if err != nil {
@@ -93,8 +91,25 @@ func New(peer peer.Peer, peerID, infoHash [20]byte) (*Client, error) {
 	}, nil
 }
 
+func (c *Client) SendRequest(index, offset, length int) error {
+	msg := message.FormatRequest(index, offset, length)
+	_, err := c.Conn.Write(msg.Serialize())
+	return err
+}
+
 func (c *Client) SendInterested() error {
 	msg := message.Message{ID: message.MsgInterested}
 	_, err := c.Conn.Write(msg.Serialize())
 	return err
+}
+
+func (c *Client) SendUnchoke() error {
+	msg := message.Message{ID: message.MsgUnchoke}
+	_, err := c.Conn.Write(msg.Serialize())
+	return err
+}
+
+func (c *Client) Read() (*message.Message, error) {
+	msg, err := message.Read(c.Conn)
+	return msg, err
 }

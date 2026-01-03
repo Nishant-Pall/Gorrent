@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"gorrent/client"
+	"gorrent/message"
 	"gorrent/peer"
 	"io"
 	"log"
@@ -141,7 +142,56 @@ func (tf *TorrentFile) DownloadToFile(filePath string) error {
 	defer client.Conn.Close()
 	log.Printf("Completed handshake with %s\n", peers[0].IP)
 
+	fmt.Println("Sending Unchoke")
+	client.SendUnchoke()
+	fmt.Println("Sending Interested")
 	client.SendInterested()
+	msg, _ := client.Read()
+
+	if msg.ID != message.MsgUnchoke {
+		return fmt.Errorf("Choked")
+	}
+	fmt.Printf("interested? %v \r\n", msg.ID)
+
+	localBitField := make([]byte, len(client.Bitfield))
+	blockSize := 16384
+	fmt.Println("Starting download")
+
+	for i := range len(client.Bitfield) {
+		begin := 0
+		if client.Bitfield.HasPiece(i) && localBitField[i] == 0 {
+			state := progress{
+				index:  i,
+				client: client,
+				buf:    make([]byte, tf.PieceLength),
+			}
+			fmt.Printf("Starting download for index %d \r\n", i)
+			client.SendRequest(i, begin, blockSize)
+
+			state.Read()
+
+		}
+		localBitField[i] = 1
+		begin += blockSize
+	}
 
 	return nil
+}
+
+type progress struct {
+	client *client.Client
+	index  int
+	buf    []byte
+}
+
+func (state *progress) Read() {
+
+	msg, _ := state.client.Read()
+	switch msg.ID {
+	case message.MsgPiece:
+		fmt.Printf("Parsing piece index: %d \r\n", state.index)
+		n := message.ParsePiece(state.index, state.buf, msg)
+
+		fmt.Println("Data: ", n)
+	}
 }
