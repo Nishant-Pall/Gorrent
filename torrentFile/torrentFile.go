@@ -3,7 +3,10 @@ package torrentFile
 import (
 	"crypto/rand"
 	"fmt"
+	"gorrent/client"
 	"gorrent/peer"
+	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -98,4 +101,47 @@ func (t *TorrentFile) RequestPeers(url string) ([]peer.Peer, error) {
 	}
 
 	return peers, nil
+}
+
+func Open(file io.Reader) (*TorrentFile, error) {
+	bto := &BencodeTorrent{}
+
+	err := bto.OpenTorrent(file)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := bto.ToTorrentFile()
+	if err != nil {
+		return nil, err
+	}
+
+	return t, nil
+}
+
+func (tf *TorrentFile) DownloadToFile(filePath string) error {
+
+	url, err := tf.BuildTrackerURL()
+	if err != nil {
+		return err
+	}
+
+	peers, err := tf.RequestPeers(url)
+
+	if err != nil {
+		fmt.Printf("%v \r\n", err)
+		return err
+	}
+
+	client, err := client.New(peers[0], tf.PeerID, tf.InfoHash)
+
+	if err != nil {
+		return err
+	}
+	defer client.Conn.Close()
+	log.Printf("Completed handshake with %s\n", peers[0].IP)
+
+	client.SendInterested()
+
+	return nil
 }
