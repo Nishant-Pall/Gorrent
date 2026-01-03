@@ -92,18 +92,31 @@ func New(peer peer.Peer, peerID, infoHash [20]byte) (*Client, error) {
 	}, nil
 }
 
+func (c *Client) Read() (*message.Message, error) {
+	msg, err := message.Read(c.Conn)
+	return msg, err
+}
+
+func (c *Client) SendRequest(index, begin, length int) error {
+	req := message.FormatRequest(index, begin, length)
+	_, err := c.Conn.Write(req.Serialize())
+	return err
+}
+
 func (c *Client) SendUnchoke() error {
 	msg := message.Message{ID: message.MsgUnchoke}
 	_, err := c.Conn.Write(msg.Serialize())
-
-	t, _ := message.Read(c.Conn)
-	fmt.Printf("%v \r\n", *t)
-
 	return err
 }
 
 func (c *Client) SendInterested() error {
 	msg := message.Message{ID: message.MsgInterested}
+	_, err := c.Conn.Write(msg.Serialize())
+	return err
+}
+
+func (c *Client) SendHave(index int) error {
+	msg := message.FormatHave(index)
 	_, err := c.Conn.Write(msg.Serialize())
 	return err
 }

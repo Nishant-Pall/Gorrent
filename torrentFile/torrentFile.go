@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 
@@ -89,7 +90,6 @@ func (t *TorrentFile) RequestPeers() ([]peer.Peer, error) {
 	defer resp.Body.Close()
 
 	rawResponse, err := bengoder.UnMarshall(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,6 @@ func (t *TorrentFile) RequestPeers() ([]peer.Peer, error) {
 	}
 
 	peers, err := peer.Unmarshal([]byte(rawResponse["peers"].(string)))
-
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +141,22 @@ func (tf *TorrentFile) DownloadToFile(filePath string) error {
 		Name:        tf.Name,
 	}
 
-	torrent.Download()
+	buf, err := torrent.Download()
+
+	if err != nil {
+		return err
+	}
+
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	_, err = outFile.Write(buf)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
