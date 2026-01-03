@@ -82,9 +82,7 @@ type Torrent struct {
 func (t *Torrent) calculateBoundsForPiece(index int) (begin int, end int) {
 	begin = index * t.PieceLength
 	end = begin + t.PieceLength
-	if end > t.Length {
-		end = t.Length
-	}
+	end = min(end, t.Length)
 	return begin, end
 }
 
@@ -115,10 +113,7 @@ func attemptDownloadPiece(c *client.Client, pw *pieceWork) ([]byte, error) {
 			for state.backlog < MaxBackLog && state.requested < pw.length {
 				blockSize := MaxBlockSize
 
-				// blockSize = min(pw.length-state.requested, blockSize)
-				if pw.length-state.requested < blockSize {
-					blockSize = pw.length - state.requested
-				}
+				blockSize = min(pw.length-state.requested, blockSize)
 
 				err := c.SendRequest(pw.index, state.requested, blockSize)
 				if err != nil {
