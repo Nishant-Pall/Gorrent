@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"gorrent/bitfield"
 	"gorrent/handshake"
 	"gorrent/message"
 	"gorrent/peer"
@@ -12,7 +13,7 @@ import (
 type Client struct {
 	Conn     net.Conn
 	Choked   bool
-	Bitfield message.BitField
+	Bitfield bitfield.BitField
 	peer     peer.Peer
 	infoHash [20]byte
 	peerID   [20]byte
@@ -39,7 +40,7 @@ func CompleteHandShake(conn net.Conn, peerID, infoHash [20]byte) (*handshake.Han
 	return hs, nil
 }
 
-func receiveBitField(conn net.Conn) (message.BitField, error) {
+func receiveBitField(conn net.Conn) (bitfield.BitField, error) {
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	defer conn.SetDeadline(time.Time{})
 
@@ -67,8 +68,6 @@ func New(peer peer.Peer, peerID, infoHash [20]byte) (*Client, error) {
 		return nil, err
 	}
 
-	defer conn.Close()
-
 	_, err = CompleteHandShake(conn, peerID, infoHash)
 
 	if err != nil {
@@ -91,6 +90,16 @@ func New(peer peer.Peer, peerID, infoHash [20]byte) (*Client, error) {
 		infoHash: infoHash,
 		peerID:   peerID,
 	}, nil
+}
+
+func (c *Client) SendUnchoke() error {
+	msg := message.Message{ID: message.MsgUnchoke}
+	_, err := c.Conn.Write(msg.Serialize())
+
+	t, _ := message.Read(c.Conn)
+	fmt.Printf("%v \r\n", *t)
+
+	return err
 }
 
 func (c *Client) SendInterested() error {

@@ -2,10 +2,9 @@ package message
 
 import (
 	"encoding/binary"
+	"gorrent/bitfield"
 	"io"
 )
-
-type BitField []byte
 
 type messageID uint8
 
@@ -23,7 +22,7 @@ const (
 
 type Message struct {
 	ID      messageID
-	Payload BitField
+	Payload bitfield.BitField
 }
 
 func (m *Message) Serialize() []byte {
@@ -50,6 +49,10 @@ func Read(r io.Reader) (*Message, error) {
 	}
 
 	length := binary.BigEndian.Uint32(lengthBuff)
+
+	if length == 0 {
+		return nil, nil
+	}
 
 	messageBuf := make([]byte, length)
 	_, err = io.ReadFull(r, messageBuf)

@@ -3,10 +3,9 @@ package torrentFile
 import (
 	"crypto/rand"
 	"fmt"
-	"gorrent/client"
+	"gorrent/p2p"
 	"gorrent/peer"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -74,8 +73,13 @@ func (t *TorrentFile) BuildTrackerURL() (string, error) {
 	return base.String(), nil
 }
 
-func (t *TorrentFile) RequestPeers(url string) ([]peer.Peer, error) {
+func (t *TorrentFile) RequestPeers() ([]peer.Peer, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
+
+	url, err := t.BuildTrackerURL()
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -104,6 +108,7 @@ func (t *TorrentFile) RequestPeers(url string) ([]peer.Peer, error) {
 }
 
 func Open(file io.Reader) (*TorrentFile, error) {
+
 	bto := &BencodeTorrent{}
 
 	err := bto.OpenTorrent(file)
@@ -121,27 +126,23 @@ func Open(file io.Reader) (*TorrentFile, error) {
 
 func (tf *TorrentFile) DownloadToFile(filePath string) error {
 
-	url, err := tf.BuildTrackerURL()
-	if err != nil {
-		return err
-	}
-
-	peers, err := tf.RequestPeers(url)
-
-	if err != nil {
-		fmt.Printf("%v \r\n", err)
-		return err
-	}
-
-	client, err := client.New(peers[0], tf.PeerID, tf.InfoHash)
+	peers, err := tf.RequestPeers()
 
 	if err != nil {
 		return err
 	}
-	defer client.Conn.Close()
-	log.Printf("Completed handshake with %s\n", peers[0].IP)
 
-	client.SendInterested()
+	torrent := p2p.Torrent{
+		Peers:       peers,
+		PeerID:      tf.PeerID,
+		InfoHash:    tf.InfoHash,
+		PieceHashes: tf.PieceHashes,
+		PieceLength: tf.PieceLength,
+		Length:      tf.Length,
+		Name:        tf.Name,
+	}
+
+	torrent.Download()
 
 	return nil
 }

@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"gorrent/torrentFile"
-	"io"
 	"os"
 )
 
@@ -15,18 +15,15 @@ func main() {
 		return
 	}
 
-	downloadFiles(file)
-}
-
-func downloadFiles(file io.Reader) {
 	tf, err := torrentFile.Open(file)
-
 	if err != nil {
+		fmt.Printf("%v \r\n", err)
 		return
 	}
 
 	err = tf.DownloadToFile("output.torrent")
 	if err != nil {
+		fmt.Printf("%v \r\n", err)
 		return
 	}
 }
