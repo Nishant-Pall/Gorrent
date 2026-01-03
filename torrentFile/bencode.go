@@ -1,4 +1,4 @@
-package main
+package torrentFile
 
 import (
 	"crypto/sha1"
@@ -13,10 +13,12 @@ type BencodeInfo struct {
 	Name        string
 	PieceLength int
 	Pieces      string
+	rawInfo     any
 }
 
 func (bi *BencodeInfo) hash() [20]byte {
-	rawInfo := bengoder.Encode(bi)
+	infoMap := bi.rawInfo.(map[string]any)
+	rawInfo := bengoder.Encode(infoMap)
 
 	h := sha1.Sum(rawInfo)
 
@@ -53,7 +55,11 @@ type BencodeTorrent struct {
 
 func (bto *BencodeTorrent) OpenTorrent(r io.Reader) error {
 
-	decodedTorrent := bengoder.UnMarshallFile(r)
+	decodedTorrent, err := bengoder.UnMarshall(r)
+
+	if err != nil {
+		return err
+	}
 
 	bencodeInfo := &BencodeInfo{}
 
@@ -65,30 +71,30 @@ func (bto *BencodeTorrent) OpenTorrent(r io.Reader) error {
 
 	bto.Announce = decodedTorrent["announce"].(string)
 	bto.Comment = decodedTorrent["comment"].(string)
-	bto.CreatedBy = decodedTorrent["created by"].(string)
 	bto.CreationDate = decodedTorrent["creation date"].(int)
 
 	bencodeInfo.Length = info["length"].(int)
 	bencodeInfo.Name = info["name"].(string)
 	bencodeInfo.PieceLength = info["piece length"].(int)
 	bencodeInfo.Pieces = info["pieces"].(string)
+	bencodeInfo.rawInfo = info
 
 	bto.Info = *bencodeInfo
 
 	return nil
 }
 
-func (bto *BencodeTorrent) toTorrentFile() (TorrentFile, error) {
+func (bto *BencodeTorrent) ToTorrentFile() (*TorrentFile, error) {
 
 	infoHash := bto.Info.hash()
 
 	pieceHashes, err := bto.Info.splitPieceHashes()
 
 	if err != nil {
-		return TorrentFile{}, err
+		return &TorrentFile{}, err
 	}
 
-	t := TorrentFile{
+	t := &TorrentFile{
 		Announce:    bto.Announce,
 		InfoHash:    infoHash,
 		PieceLength: bto.Info.PieceLength,
