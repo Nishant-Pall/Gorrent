@@ -1,4 +1,4 @@
 build:
 	go build -o gorrent
 run:
-	./gorrent
+	./gorrent -inpath=$(INPUT) -outpath=$(OUTPUT)
